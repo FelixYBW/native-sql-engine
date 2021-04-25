@@ -25,7 +25,7 @@ fi
 mkdir build
 cd build
 cmake .. -DTESTS=${TESTS} -DBUILD_ARROW=${BUILD_ARROW} -DSTATIC_ARROW=${STATIC_ARROW} -DBUILD_PROTOBUF=${BUILD_PROTOBUF} -DARROW_ROOT=${ARROW_ROOT}
-make
+make -j
 
 set +eu
 
