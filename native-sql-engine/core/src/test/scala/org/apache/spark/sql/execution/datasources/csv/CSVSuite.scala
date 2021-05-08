@@ -392,7 +392,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(result.schema.fieldNames.size === 1)
   }
 
-  ignore("DDL test with empty file") {
+  test("DDL test with empty file") {
     withView("carsTable") {
       spark.sql(
         s"""
@@ -1376,7 +1376,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
       }
   }
 
-  ignore("SPARK-21263: Invalid float and double are handled correctly in different modes") {
+  test("SPARK-21263: Invalid float and double are handled correctly in different modes") {
     val exception = intercept[SparkException] {
       spark.read.schema("a DOUBLE")
         .option("mode", "FAILFAST")
@@ -1862,7 +1862,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("count() for malformed input") {
+  test("count() for malformed input") {
     def countForMalformedCSV(expected: Long, input: Seq[String]): Unit = {
       val schema = new StructType().add("a", IntegerType)
       val strings = spark.createDataset(input)
@@ -2355,15 +2355,12 @@ class CSVv1Suite extends CSVSuite {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       // .set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "csv")
 }
 
@@ -2379,15 +2376,12 @@ class CSVv2Suite extends CSVSuite {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }
 
@@ -2403,14 +2397,11 @@ class CSVLegacyTimeParserSuite extends CSVSuite {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.LEGACY_TIME_PARSER_POLICY, "legacy")
 }

@@ -52,16 +52,20 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
   val enableColumnarSort = columnarConf.enableColumnarSort
   val enableColumnarWindow = columnarConf.enableColumnarWindow
   val enableColumnarSortMergeJoin = columnarConf.enableColumnarSortMergeJoin
-  val testing = columnarConf.isTesting
+  val enableColumnarBatchScan = columnarConf.enableColumnarBatchScan
+  val enableColumnarProjFilter = columnarConf.enableColumnarProjFilter
+  val enableColumnarHashAgg = columnarConf.enableColumnarHashAgg
+  val enableColumnarUnion = columnarConf.enableColumnarUnion
+  val enableColumnarExpand = columnarConf.enableColumnarExpand
+  val enableColumnarShuffledHashJoin = columnarConf.enableColumnarShuffledHashJoin
+  val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
+  val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
     try {
       val columnarPlan = plan match {
         case plan: BatchScanExec =>
-          if (testing) {
-            // disable ColumnarBatchScanExec according to config
-            return false
-          }
+          if (!enableColumnarBatchScan) return false
           new ColumnarBatchScanExec(plan.output, plan.scan)
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
@@ -69,15 +73,15 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           }
           plan
         case plan: InMemoryTableScanExec =>
-          if (plan.supportsColumnar) {
-            return false
-          }
-          plan
+          new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
         case plan: ProjectExec =>
+          if(!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)
         case plan: FilterExec =>
+          if (!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(plan.condition, null, plan.child)
         case plan: HashAggregateExec =>
+          if (!enableColumnarHashAgg) return false
           new ColumnarHashAggregateExec(
             plan.requiredChildDistributionExpressions,
             plan.groupingExpressions,
@@ -87,8 +91,10 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.resultExpressions,
             plan.child)
         case plan: UnionExec =>
+          if (!enableColumnarUnion) return false
           new ColumnarUnionExec(plan.children)
         case plan: ExpandExec =>
+          if (!enableColumnarExpand) return false
           new ColumnarExpandExec(plan.projections, plan.output, plan.child)
         case plan: SortExec =>
           if (!enableColumnarSort) return false
@@ -100,6 +106,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.child,
             plan.canChangeNumPartitions)
         case plan: ShuffledHashJoinExec =>
+          if (!enableColumnarShuffledHashJoin) return false
           ColumnarShuffledHashJoinExec(
             plan.leftKeys,
             plan.rightKeys,
@@ -109,10 +116,12 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.left,
             plan.right)
         case plan: BroadcastExchangeExec =>
+          if (!enableColumnarBroadcastExchange) return false
           ColumnarBroadcastExchangeExec(plan.mode, plan.child)
         case plan: BroadcastHashJoinExec =>
           // We need to check if BroadcastExchangeExec can be converted to columnar-based.
           // If not, BHJ should also be row-based.
+          if (!enableColumnarBroadcastJoin) return false
           val left = plan.left
           left match {
             case exec: BroadcastExchangeExec =>
@@ -161,7 +170,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.isSkewJoin)
         case plan: WindowExec =>
           if (!enableColumnarWindow) return false
-          val window = ColumnarWindowExec.create(
+          val window = ColumnarWindowExec.createWithOptimizations(
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,

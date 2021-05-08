@@ -50,15 +50,12 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private val catalogName = "testcat"
   private val format = classOf[CatalogSupportingInMemoryTableProvider].getName
@@ -154,7 +151,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
     }
   }
 
-  ignore("Ignore mode if table exists - session catalog") {
+  test("Ignore mode if table exists - session catalog") {
     sql(s"create table t1 (id bigint) using $format")
     val df = spark.range(10).withColumn("part", 'id % 5)
     val dfw = df.write.format(format).mode(SaveMode.Ignore).option("name", "t1")
@@ -166,7 +163,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
     assert(load("t1", None).count() === 0)
   }
 
-  ignore("Ignore mode if table exists - testcat catalog") {
+  test("Ignore mode if table exists - testcat catalog") {
     sql(s"create table $catalogName.t1 (id bigint) using $format")
     val df = spark.range(10).withColumn("part", 'id % 5)
     val dfw = df.write.format(format).mode(SaveMode.Ignore).option("name", "t1")

@@ -14,7 +14,12 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
+  <parent>
+    <groupId>com.intel.oap</groupId>
+    <artifactId>native-sql-engine-parent</artifactId>
+    <version>1.1.0</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
 
   <groupId>com.intel.oap</groupId>
   <artifactId>spark-columnar-core</artifactId>
@@ -25,10 +30,6 @@
   <properties>
     <cpp.dir>../cpp/</cpp.dir>
     <cpp.build.dir>../cpp/build/releases/</cpp.build.dir>
-    <arrow.version>3.0.0</arrow.version>
-    <spark.version>3.0.0</spark.version>
-    <scala.binary.version>2.12</scala.binary.version>
-    <scala.version>2.12.8</scala.version>
     <build.testJarPhase>none</build.testJarPhase>
     <build.copyDependenciesPhase>package</build.copyDependenciesPhase>
     <hadoop.deps.scope>provided</hadoop.deps.scope>
@@ -36,50 +37,35 @@
     <hive.parquet.group>com.twitter</hive.parquet.group>
     <parquet.deps.scope>provided</parquet.deps.scope>
     <jars.target.dir>${project.build.directory}/scala-${scala.binary.version}/jars</jars.target.dir>
-    <cpp_tests>OFF</cpp_tests>
-    <build_arrow>ON</build_arrow>
-    <static_arrow>OFF</static_arrow>
-    <build_protobuf>ON</build_protobuf>
-    <arrow_root>/usr/local</arrow_root>
+    <nativesql.cpp_tests>${cpp_tests}</nativesql.cpp_tests>
+    <nativesql.build_arrow>OFF</nativesql.build_arrow>
+    <nativesql.static_arrow>${static_arrow}</nativesql.static_arrow>
+    <nativesql.arrow.bfs.install.dir>${project.basedir}/../../arrow-data-source/script/build/arrow_install</nativesql.arrow.bfs.install.dir>
+    <nativesql.arrow_root>${arrow_root}</nativesql.arrow_root>
+    <nativesql.build_protobuf>${build_protobuf}</nativesql.build_protobuf>
   </properties>
   <dependencies>
     <!-- Prevent our dummy JAR from being included in Spark distributions or uploaded to YARN -->
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_${scala.binary.version}</artifactId>
-      <version>${spark.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -278,6 +264,11 @@
       <version>3.6.5</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-auth</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -304,19 +295,28 @@
                       <executable>bash</executable>
                       <arguments>
                           <argument>${cpp.dir}/compile.sh</argument>
-                          <argument>${cpp_tests}</argument>
-                          <argument>${build_arrow}</argument>
-                          <argument>${static_arrow}</argument>
-                          <argument>${build_protobuf}</argument>
-                          <argument>${arrow_root}</argument>
+                          <argument>${nativesql.cpp_tests}</argument>
+                          <argument>${nativesql.build_arrow}</argument>
+                          <argument>${nativesql.static_arrow}</argument>
+                          <argument>${nativesql.build_protobuf}</argument>
+                          <argument>${nativesql.arrow_root}</argument>
+                          <argument>${nativesql.arrow.bfs.install.dir}</argument>
                       </arguments>
                   </configuration>
               </execution>
           </executions>
       </plugin>
       <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.1</version>
+      </plugin>
+      <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+        <configuration>
+          <recompileMode>${scala.recompile.mode}</recompileMode>
+        </configuration>
         <executions>
           <execution>
             <id>scala-compile-first</id>
@@ -376,7 +376,7 @@
         <version>1.0.0</version>
         <configuration>
           <verbose>false</verbose>
-          <failOnViolation>true</failOnViolation>
+          <failOnViolation>false</failOnViolation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <failOnWarning>false</failOnWarning>
           <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>

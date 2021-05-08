@@ -35,11 +35,8 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -83,7 +80,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
     checkNamedStruct(df.queryExecution.optimizedPlan, expectedCount = 0)
   }
 
-  ignore("named_struct is used in the top Project") {
+  test("named_struct is used in the top Project") {
     val df = spark.table("tab").selectExpr(
       "i5", "named_struct('a', i1, 'b', i2) as col1", "named_struct('a', i3, 'c', i4)")
       .selectExpr("col1.a", "col1")

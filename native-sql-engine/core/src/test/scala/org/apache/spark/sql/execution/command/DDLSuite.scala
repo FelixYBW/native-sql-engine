@@ -53,18 +53,15 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   override def afterEach(): Unit = {
     try {
@@ -2247,7 +2244,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("show functions") {
+  test("show functions") {
     withUserDefinedFunction("add_one" -> true) {
       val numFunctions = FunctionRegistry.functionSet.size.toLong +
         FunctionsCommand.virtualOperators.size.toLong
@@ -2289,7 +2286,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     assert(rows.length > 0)
   }
 
-  ignore("SET LOCATION for managed table") {
+  test("SET LOCATION for managed table") {
     withTable("tbl") {
       withTempDir { dir =>
         sql("CREATE TABLE tbl(i INT) USING parquet")
@@ -2468,7 +2465,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Partition table should load empty static partitions") {
+  test("Partition table should load empty static partitions") {
     // All static partitions
     withTable("t", "t1", "t2") {
       withTempPath { dir =>

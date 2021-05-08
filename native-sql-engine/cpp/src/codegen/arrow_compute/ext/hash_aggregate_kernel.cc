@@ -372,12 +372,33 @@ class HashAggregateKernel::Impl {
         action_codes_ss << project_output_list[i].first.second << std::endl;
         project_output_list[i].first.second = "";
       }
-      if (idx_v.size() > 0)
-        action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
-                        << "_validity) {" << std::endl;
+      if (idx_v.size() > 0) {
+        if (action_name_str_list[action_idx] != "\"action_count\"") {
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity) {" << std::endl;
+        } else {
+          // For action_count with mutiple-col input, will check the validity
+          // of all the input cols.
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity";
+          for (int i = 1; i < idx_v.size() - 1; i++) {
+            action_codes_ss << " && " << project_output_list[idx_v[i]].first.first
+                            << "_validity";
+          }
+          action_codes_ss << " && "
+                          << project_output_list[idx_v[idx_v.size() - 1]].first.first
+                          << "_validity) {" << std::endl;
+        }
+      }
       std::vector<std::string> parameter_list;
-      for (auto i : idx_v) {
-        parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+      if (action_name_str_list[action_idx] != "\"action_count\"") {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
+      } else {
+        // For action_count, only the first col will be used as input to Evaluate
+        // function, in which it will not be used.
+        parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
       }
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
                       << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
@@ -652,6 +673,7 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
+      batch_size_ = GetBatchSize();
       aggr_hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
     }
 
@@ -756,7 +778,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -781,6 +803,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 
   template <typename DataType>
@@ -802,6 +825,10 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+#ifdef DEBUG
+      std::cout << "using string hashagg res" << std::endl;
+#endif
+      batch_size_ = GetBatchSize();
       if (key_index_list.size() > 1) {
         aggr_key_unsafe_row = std::make_shared<UnsafeRow>(key_index_list.size());
       }
@@ -854,9 +881,6 @@ class HashAggregateKernel::Impl {
           aggr_key_validity =
               typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
         }
-
-        // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ",
-        // *(aggr_key.data() + n)); std::cout << std::endl;
 
         // 3. get key from hash_table
         int memo_index = 0;
@@ -912,7 +936,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -939,6 +963,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 
   template <typename DataType>
@@ -961,6 +986,7 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
+      batch_size_ = GetBatchSize();
       aggr_hash_table_ =
           std::make_shared<precompile::Decimal128HashMap>(ctx->memory_pool());
     }
@@ -1066,7 +1092,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1091,6 +1117,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 };
 arrow::Status HashAggregateKernel::Make(

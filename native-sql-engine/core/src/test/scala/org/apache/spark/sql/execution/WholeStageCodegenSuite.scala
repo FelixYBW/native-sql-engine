@@ -47,11 +47,8 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -157,7 +154,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(dsStringFilter.collect() === Array("1"))
   }
 
-  ignore("SPARK-19512 codegen for comparing structs is incorrect") {
+  test("SPARK-19512 codegen for comparing structs is incorrect") {
     // this would raise CompileException before the fix
     spark.range(10)
       .selectExpr("named_struct('a', id) as col1", "named_struct('a', id+2) as col2")

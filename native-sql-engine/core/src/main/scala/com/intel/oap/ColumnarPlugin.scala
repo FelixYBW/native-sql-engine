@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins._
@@ -35,7 +36,6 @@ import org.apache.spark.sql.internal.SQLConf
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
-  val testing: Boolean = columnarConf.isTesting
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -61,6 +61,9 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
+    case plan: InMemoryTableScanExec =>
+      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
     case plan: ProjectExec =>
       val columnarChild = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
@@ -218,36 +221,17 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       }
 
     case plan: WindowExec =>
-      if (columnarConf.enableColumnarWindow) {
-        val sortRemoved = plan.child match {
-          case sort: SortExec => // remove ordering requirements
-            replaceWithColumnarPlan(sort.child)
-          case _ =>
-            replaceWithColumnarPlan(plan.child)
-        }
-        // disable CoalesceBatchesExec to reduce Netty direct memory usage
-        val coalesceBatchRemoved = sortRemoved match {
-          case s: CoalesceBatchesExec =>
-            s.child
-          case _ => sortRemoved
-        }
-        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-        try {
-          val window = ColumnarWindowExec.create(
-            plan.windowExpression,
-            plan.partitionSpec,
-            plan.orderSpec,
-            coalesceBatchRemoved)
-          return window
-        } catch {
-          case _: Throwable =>
-            logInfo("Columnar Window: Falling back to regular Window...")
-        }
+      try {
+        ColumnarWindowExec.createWithOptimizations(
+          plan.windowExpression,
+          plan.partitionSpec,
+          plan.orderSpec,
+          replaceWithColumnarPlan(plan.child))
+      } catch {
+        case _: Throwable =>
+          logInfo("Columnar Window: Falling back to regular Window...")
+          plan
       }
-      logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
-      val children = plan.children.map(replaceWithColumnarPlan)
-      plan.withNewChildren(children)
-
     case p =>
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${p.getClass} is currently not supported.")

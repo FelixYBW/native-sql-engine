@@ -40,13 +40,7 @@ T round2(T val, int precision = 2) {
 }
 
 arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
-  double dVal = (double)val;
-  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, dVal);
-  char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
-  snprintf(buffer, sizeof(buffer), "%.*f", (int)scale, nextafter(val, val + 0.5));
-  auto decimal_str = std::string(buffer);
-  free(buffer);
-  return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
+  return arrow::Decimal128::FromReal(val, precision, scale).ValueOrDie();
 }
 
 std::string castStringFromDecimal(arrow::Decimal128 val, int32_t scale) {
@@ -136,6 +130,13 @@ arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
   return arrow::Decimal128(out);
 }
 
+arrow::Decimal128 divide(const arrow::Decimal128& x, int32_t precision, int32_t scale,
+                         int64_t y) {
+  gandiva::BasicDecimalScalar128 val(x, precision, scale);
+  arrow::BasicDecimal128 out = gandiva::decimalops::Divide(val, y);
+  return arrow::Decimal128(out);
+}
+
 // A comparison with a NaN always returns false even when comparing with itself.
 // To get the same result as spark, we can regard NaN as big as Infinity when
 // doing comparison.
@@ -202,6 +203,16 @@ bool equal_with_nan(double left, double right) {
     return false;
   }
   return left == right;
+}
+
+double normalize_nan_zero(double in) {
+  if (std::isnan(in)) {
+    return 0.0 / 0.0;
+  } else if (in < 0 && std::abs(in) < 0.0000001) {
+    return 0.0;
+  } else {
+    return in;
+  }
 }
 
 arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,

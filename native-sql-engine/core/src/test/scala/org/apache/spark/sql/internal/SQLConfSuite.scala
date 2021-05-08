@@ -40,11 +40,8 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -150,7 +147,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     assert(conf.get("spark.sql.warehouse.dir") === warehouseDir)
   }
 
-  ignore("reset - public conf") {
+  test("reset - public conf") {
     spark.sessionState.conf.clear()
     val original = spark.conf.get(SQLConf.GROUP_BY_ORDINAL)
     try {
@@ -166,7 +163,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("reset - internal conf") {
+  test("reset - internal conf") {
     spark.sessionState.conf.clear()
     val original = spark.conf.get(SQLConf.OPTIMIZER_MAX_ITERATIONS)
     try {
